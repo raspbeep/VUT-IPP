@@ -1,10 +1,13 @@
 <?php
 
-use JetBrains\PhpStorm\Pure;
+
+ini_set('display_errors','STDERR');
+
+
 
 const ERROR_PARAM = -2;
 const ERROR_EMPTY = -3;
-$myFile = fopen("prog", "r");
+$myFile = fopen("prog.txt", "r");
 
 parseInputArguments();
 
@@ -16,10 +19,6 @@ try {
 }
 
 parseLines();
-
-
-
-
 
 
 function parseLines() {
@@ -39,7 +38,6 @@ function parseLines() {
     }
 
 }
-
 
 
 /**
@@ -68,6 +66,7 @@ function parseInputArguments(): int {
     $argOptions = array("help");
     $args = getopt(null, $argOptions);
 
+    print $argc;
     if($argc == 2 && isset($args["help"])) {
         // TODO: complete a help message
         fputs(STDOUT, "Arbitrary help message.\n");
@@ -83,7 +82,7 @@ function handleError(int $errno) {
     switch ($errno) {
         case ERROR_PARAM:
             fputs(STDERR, "Invalid number of input arguments.\n");
-            exit(ERROR_PARAM);
+            die(ERROR_PARAM);
         case ERROR_EMPTY:
             fputs(STDERR, "Empty file, nothing to read.\n");
             exit(ERROR_EMPTY);
