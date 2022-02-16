@@ -30,6 +30,8 @@ function parseLines() {
     if(!$line) {
         handleError(ERROR_EMPTY);
     }
+
+
     preg_match("^\.(IPPcode22)(IPPcode22)\n$", $line, $matches);
     if($matches == NULL) {
         print "no matches bruh";
@@ -64,7 +66,7 @@ function xmlInit(&$doc) {
 function parseInputArguments(): int {
     global $argc;
     $argOptions = array("help");
-    $args = getopt(null, $argOptions);
+    $givenParams = getopt(null, $argOptions);
 
     print $argc;
     if($argc == 2 && isset($args["help"])) {
