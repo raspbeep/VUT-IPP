@@ -1,0 +1,26 @@
+
+.IPPcode22
+
+CREATEFRAME
+
+READ TF@aaa string
+
+DEFVAR TF@aaa
+MOVE TF@aaa int@1
+
+WRITE TF@aaa
+
+PUSHFRAME
+
+WRITE LF@aaa
+
+CREATEFRAME
+
+DEFVAR TF@aaa
+MOVE TF@aaa int@2
+
+WRITE TF@aaa
+
+POPFRAME
+
+WRITE TF@aaa
