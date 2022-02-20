@@ -1,6 +1,5 @@
 <?php
 
-use JetBrains\PhpStorm\NoReturn;
 // directory error
 const ERROR_DIRECTORY = 41;
 // directory error parsing parameter --directory
@@ -15,19 +14,26 @@ const ERROR_TEST_PATH = -6;
 // for local testing
 const PHP_ALIAS = "php";
 
+const ERROR_PARSER = -7;
+
+const ERROR_INTERPRET = -8;
+
+
 class InputArguments {
 
     public string $testDirectory = "./test/";
     public string $parseScriptPath = "./parse.php";
     public string $jexamPath = "./jexamxml/jexamxml.jar";
-    public bool $recursion = false;
+    public bool $recursion = true;
     // TODO: change to false
     public bool $parseOnly = true;
     public bool $interpretOnly = false;
     // TODO: change to true
     public bool $cleanFiles = false;
+    // TODO: check argument collisions
+    public string $parserOutput = ".out";
 
-    #[NoReturn] public function __construct() {
+    public function __construct() {
         $argOptions = array("help", "directory:", "recursive", "parse-script:", "int-script:", "parse-only", "int-only", "jexampath:", "noclean");
         $givenParams = getopt("", $argOptions);
 
@@ -92,37 +98,90 @@ class InputArguments {
 
 class Tester {
     private InputArguments $args;
-    private array $foldersToTest;
     public string $resultHtmlTestList;
 
     public function __construct() {
         $this->args = new InputArguments();
     }
 
-    public function scanFolders () {
-
-    }
-
     public function makeTest() {
-        $testFiles = scandir($this->args->testDirectory);
+        // Construct the iterator
+        $it = new RecursiveDirectoryIterator($this->args->testDirectory);
 
-        $currentWorkDir = $this->args->testDirectory;
+        // Loop through files
+        foreach(new RecursiveIteratorIterator($it) as $file) {
+            $fileName = $file->getFilename();
+            // skip current and parent directory to avoid looping
+            if ($fileName == "." || $fileName == "..") continue;
 
-        foreach ($testFiles as $file) {
-            // remove .DS_Store
-            if (!is_dir($file) && $file != ".DS_Store" && str_ends_with($file, ".src")) {
-                $fileNoExt = preg_replace('/\\.[^.\\s]{3,4}$/', '', $file);
-                $command = PHP_ALIAS." ".$this->args->parseScriptPath." < ".$this->args->testDirectory.$file." > ".$currentWorkDir.$fileNoExt.".pout";
-                exec($command);
+            $filePath = $file->getPath()."/";
+            $fileNoExt = preg_replace('/\\.[^.\\s]{2,4}$/', '', $fileName);
+            $filePathNoExtName = $filePath.$fileNoExt;
 
-                $command = "java -jar ".$this->args->jexamPath." ".$this->args->testDirectory.$fileNoExt.".in ".$this->args->testDirectory.$fileNoExt.".pout";
-                print exec($command);
-                print "\n";
+            // iterate only through .src files
+            if (!$this->args->interpretOnly) {
+                if (!str_ends_with($fileName, ".src")) continue;
             }
+
+            // add missing testing files if absent
+            $this->addMissingFiles($filePathNoExtName);
+
+            // if --int-only is not set
+            if (!$this->args->interpretOnly) {
+                $command = PHP_ALIAS." ".$this->args->parseScriptPath." < ".$filePathNoExtName.".src > ".$filePathNoExtName.".pout";
+                // $string, $code are return results from parse.php
+                exec($command, $string, $code);
+                // $resultCodeFile = fopen($filePath.$fileNoExt.".rc", "r");
+                // $resultCode = trim(fgets($resultCodeFile), " \n");
+
+                if ($this->args->parseOnly) {
+                    $rcFile = fopen($filePathNoExtName.".rc", "r");
+                    $rcCode = trim(fgets($rcFile));
+                    fclose($rcFile);
+
+                    if ($rcCode != 0) {
+                        if ($code == $rcCode) {
+                            print $filePathNoExtName."  RC code matching ✅\n";
+                        } else {
+                            print $filePathNoExtName."  Invalid rc code! ❌ Have: ".$code." and should be: ".$rcCode."\n";
+                        }
+                        continue;
+                    }
+
+                    $command = "java -jar ".$this->args->jexamPath." ".$filePathNoExtName.$this->args->parserOutput." ".$filePathNoExtName.".pout";
+                    exec($command, $output, $compareCode);
+                    if ($compareCode == 0) {
+                        print $filePathNoExtName."  XML matching ✅\n";
+                    } else {
+                        print $filePathNoExtName."  Invalid XML ❌\n";
+                    }
+                }
+
+//                // clean .pout files if --noclean is not set
+//                if ($this->args->cleanFiles) {
+//                    $command = "rm -f ".$filePath.$fileNoExt.".pout";
+//                    exec($command, $out, $code);
+//                    // print $command."     ".$code."\n";
+//                }
+            }
+
         }
     }
 
-
+    public function addMissingFiles(string $filePathNoExtName) {
+        // if .rc file does not exist, create one with resultCode=0
+        if (!file_exists($filePathNoExtName.".rc")) {
+            file_put_contents($filePathNoExtName.".rc", "0");
+        }
+        // if .in file does not exist, create an empty one
+        if (!file_exists($filePathNoExtName.".in")) {
+            file_put_contents($filePathNoExtName.".in", "");
+        }
+        // if .out file does not exist, create an empty one
+        if (!file_exists($filePathNoExtName.".out")) {
+            file_put_contents($filePathNoExtName.".out", "");
+        }
+    }
 }
 
 function handleError(int $errno) {

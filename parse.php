@@ -56,21 +56,6 @@ function lineIsEmpty(string $line): bool {
     return false;
 }
 
-// check for header correctness
-function processHeader() {
-    // TODO: STDIN
-    global $myFile;
-
-    do {
-        $line = trim(fgets(STDIN), " \n");
-    } while(lineIsEmpty($line));
-
-    // check for regex match, die if not found
-    if(!preg_match("/^\.IPPcode22$/", $line, $matches)) {
-        handleError(ERROR_HEADER);
-    }
-}
-
 // compares supposed number of arguments with $line data
 function checkArgumentCount(array $args, int $nOfParams):bool {
     $n = count($args) - 1;
@@ -121,9 +106,10 @@ function instructionParseConst(string $arg, int $argOrder,bool $symbol = false):
     // TODO: handle problematic XML characters (<,>,&)
     // check value
     $result = match ($parts[0]) {
-        "int" => preg_match("/[+-]?[\d]*/", $parts[1]),
-        "string" => preg_match("/[\S]*/", $parts[1]),
-        "bool" => preg_match("/(true|false)/", $parts[1]),
+        "int" => preg_match("/^[+-]?[\d]+$/", $parts[1]),
+        "string" => preg_match("/^[\S]*$/", $parts[1]),
+        "bool" => preg_match("/^(true|false)$/", $parts[1]),
+        "nil" => $parts[1] == "nil",
     };
 
     if (!$result) {
@@ -230,23 +216,17 @@ function processInstruction(array $line_arr, int $order) {
         case "INT2CHAR":
         case "TYPE":
         case "STRLEN":
-            // TODO: write command to xml
             checkArgumentCount($line_arr, 2);
             xmlWriteCommand($opcode, $order);
-
             instructionParseVar($line_arr[1], 1);
             instructionParseSymb($line_arr[2], 2);
-
             break;
 
         /* <var><type> instructions */
         case "READ":
-            // TODO: write command to xml
             checkArgumentCount($line_arr, 2);
             xmlWriteCommand($opcode, $order);
-
             instructionParseVar($line_arr[1], 1);
-
             instructionParseType($line_arr[2], 2);
             break;
 
@@ -254,16 +234,11 @@ function processInstruction(array $line_arr, int $order) {
         /* <label><symb1><symb2> instructions */
         case "JUMPIFEQ":
         case "JUMPIFNEQ":
-            // TODO: write command to xml
             checkArgumentCount($line_arr, 3);
             xmlWriteCommand($opcode, $order);
-
             instructionParseLabel($line_arr[1], 1);
-
             instructionParseSymb($line_arr[2], 2);
-
             instructionParseSymb($line_arr[3], 3);
-
             break;
 
         /* <var><symb1><symb2> instructions */
@@ -281,14 +256,10 @@ function processInstruction(array $line_arr, int $order) {
         case "CONCAT":
         case "GETCHAR":
         case "SETCHAR":
-            // TODO: write command to xml
             checkArgumentCount($line_arr, 3);
             xmlWriteCommand($opcode, $order);
-
             instructionParseVar($line_arr[1], 1);
-
             instructionParseSymb($line_arr[2], 2);
-
             instructionParseSymb($line_arr[3], 3);
 
             break;
@@ -298,22 +269,17 @@ function processInstruction(array $line_arr, int $order) {
         case "EXIT":
         case "DPRINT":
         case "WRITE":
-            // TODO: write command to xml
             checkArgumentCount($line_arr, 1);
             xmlWriteCommand($opcode, $order);
-
             instructionParseSymb($line_arr[1], 1);
             break;
 
         /* <var> instructions */
         case "POPS":
         case "DEFVAR":
-            // TODO: write command to xml
             checkArgumentCount($line_arr, 1);
             xmlWriteCommand($opcode, $order);
-
             instructionParseVar($line_arr[1], 1);
-
             break;
 
         /* 0 arg instructions */
@@ -322,24 +288,35 @@ function processInstruction(array $line_arr, int $order) {
         case "CREATEFRAME":
         case "PUSHFRAME":
         case "POPFRAME":
-            // TODO: write command to xml
             checkArgumentCount($line_arr, 0);
             xmlWriteCommand($opcode, $order);
-
             break;
 
         /* <label> arg instructions */
         case "LABEL":
         case "CALL":
         case "JUMP":
-            // TODO: write command to xml
             checkArgumentCount($line_arr, 1);
             xmlWriteCommand($opcode, $order);
-
             instructionParseLabel($line_arr[1], 1);
             break;
         default:
             handleError(ERROR_CODE);
+    }
+}
+
+// check for header correctness
+function processHeader() {
+    // TODO: STDIN
+    global $myFile;
+
+    do {
+        $line = trim(lineStripComment(trim(fgets(STDIN), " \n")));
+    } while(lineIsEmpty($line));
+
+    // check for regex match, die if not found
+    if(!preg_match("/^\.IPPcode22$/", $line, $matches)) {
+        handleError(ERROR_HEADER);
     }
 }
 
@@ -394,7 +371,6 @@ function parseInputArguments(): int {
 function handleError(int $errno) {
     switch ($errno) {
         case ERROR_PARAM:
-            // TODO: suggest using --help
             fputs(STDERR, "Invalid number of input arguments. Use argument --help for use \n");
             exit(ERROR_PARAM);
         case ERROR_EMPTY:
@@ -411,21 +387,30 @@ function handleError(int $errno) {
             exit(ERROR_PARSE);
         case ERROR_VAR:
             fputs(STDERR, "Incorrect opcode argument 'var'.\n");
+            echo "";
             exit(ERROR_PARSE);
         case ERROR_TYPE:
             fputs(STDERR, "Incorrect opcode argument 'type'.\n");
+            echo "";
             exit(ERROR_PARSE);
         case ERROR_SYMBOL:
             fputs(STDERR, "Incorrect opcode argument 'symbol'.\n");
+            echo "";
             exit(ERROR_PARSE);
         case ERROR_CONSTANT:
-            fputs(STDERR, "Incorrect opcode argument 'constant'\n");
+            fputs(STDERR, "Incorrect opcode argument 'constant'.\n");
+            echo "";
             exit(ERROR_PARSE);
+        case ERROR_CODE:
+            fputs(STDERR, "Incorrect opcode.\n");
+            echo "";
+            exit(ERROR_CODE);
+
     }
 }
 
 // TODO: STDIN
-//$myFile = fopen("test1.src", "r");
+//$myFile = fopen("./test/string/slash.src", "r");
 
 parseInputArguments();
 
